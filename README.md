@@ -1,4 +1,4 @@
-# 🥧 SnackTrack: Sales Trend Forecasting System for Snack Distribution
+# SnackTrack: Sales Trend Forecasting System for Snack Distribution
 
 SnackTrack is a predictive analytics and inventory optimization system designed to transition distribution operations from intuition-driven guessing to data-informed strategy. Developed using an **Agile SDLC framework**, this platform implements an optimized machine learning pipeline to mitigate overstocking risks and manage perishability for high-demand snack variants (**Original Pie, Choco Pie, and Keju Pie**).
 
@@ -6,7 +6,7 @@ This repository contains the complete open-source core implementation and web da
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 The project structure is strictly organized as follows:
 * **`app/`**: Contains the frontend interactive dashboard implementation.
@@ -46,7 +46,7 @@ $$\text{Recommended Stock} = \lceil \text{Forecast} \times (1 + \text{MAPE}) \rc
 
 ---
 
-## 🚀 Execution & Deployment Guide
+## Execution & Deployment Guide
 
 ### 1. Environment Setup
 Clone the workspace and establish the necessary execution libraries:
