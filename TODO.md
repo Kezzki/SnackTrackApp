@@ -1,0 +1,3 @@
+1. After completing transaction, notification should be sent to seller, and their /transaction should have an notification, and a card.
+2. On the buyer side, after completing transaction, notification should be sent to buyer, and their /transaction should have an notification, and you can click on a specific order to see whats on it, and the contact info of the seller.
+3. A lot of transaction steps after payment hasnt been consolidated.

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBS Music Player</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111;
+    --accent: #e8ff47;
+    --accent2: #ff4778;
+    --text: #f0f0f0;
+    --muted: #555;
+    --disc-size: 160px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    font-family: 'Space Mono', monospace;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  /* ── PLAYER CARD ── */
+  #player {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: rgba(10,10,10,0.88);
+    border: 1px solid rgba(232,255,71,0.18);
+    border-radius: 20px;
+    padding: 18px 24px 18px 18px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    min-width: 360px;
+    max-width: 480px;
+    transform: translateY(120px);
+    opacity: 0;
+    transition: transform 0.6s cubic-bezier(0.16,1,0.3,1), opacity 0.5s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #player.visible {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* scan-line shimmer */
+  #player::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(255,255,255,0.012) 3px,
+      rgba(255,255,255,0.012) 4px
+    );
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* ── DISC ── */
+  #disc-wrap {
+    position: relative;
+    flex-shrink: 0;
+    width: var(--disc-size);
+    height: var(--disc-size);
+  }
+
+  #disc {
+    width: var(--disc-size);
+    height: var(--disc-size);
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    animation: spin 6s linear infinite;
+    animation-play-state: paused;
+    box-shadow: 0 0 0 3px rgba(232,255,71,0.15), 0 4px 24px rgba(0,0,0,0.5);
+    background: #1a1a1a;
+  }
+
+  #disc.playing { animation-play-state: running; }
+
+  /* vinyl grooves overlay */
+  #disc-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 20%, rgba(0,0,0,0.08) 21%, transparent 22%),
+      radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.06) 31%, transparent 32%),
+      radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,0.05) 41%, transparent 42%),
+      radial-gradient(circle at 50% 50%, transparent 50%, rgba(0,0,0,0.04) 51%, transparent 52%);
+    pointer-events: none;
+  }
+
+  /* center hole */
+  #disc-wrap::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px; height: 18px;
+    background: #0a0a0a;
+    border-radius: 50%;
+    z-index: 2;
+    box-shadow: 0 0 0 2px rgba(232,255,71,0.3);
+  }
+
+  #disc-default {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1c1c1c, #2a2a2a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 36px;
+    position: absolute;
+    inset: 0;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── INFO ── */
+  #info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #now-playing-label {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  #now-playing-label .dot {
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+    display: none;
+  }
+
+  #now-playing-label .dot.active { display: block; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  #song-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  #song-artist {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── PROGRESS ── */
+  #progress-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  #progress-bar-bg {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  #progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    transition: width 0.5s linear;
+  }
+
+  #times {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── CONTROLS ── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 4px;
+    transition: color 0.2s, transform 0.15s;
+    display: flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  .ctrl-btn:hover { color: var(--text); transform: scale(1.15); }
+
+  #play-btn {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: transform 0.15s, background 0.2s;
+  }
+
+  #play-btn:hover { transform: scale(1.1); background: #fff; }
+
+  /* ── LOAD AREA (shown when no files) ── */
+  #load-area {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,10,0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+  }
+
+  #load-area h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  #load-area p {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.7;
+  }
+
+  #file-input { display: none; }
+
+  #load-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #000;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.2s;
+  }
+
+  #load-btn:hover { background: #fff; transform: scale(1.04); }
+
+  #track-count {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-left: auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOAD SCREEN -->
+<div id="load-area">
+  <h1>🎵 OBS Music Player</h1>
+  <p>Load your music folder to get started.<br>Supports MP3, FLAC, OGG, WAV, M4A.</p>
+  <button id="load-btn" onclick="document.getElementById('file-input').click()">Choose Music Files</button>
+  <input type="file" id="file-input" multiple accept="audio/*">
+  <p style="font-size:10px; color:#333; margin-top:8px;">After loading, hide this overlay in OBS — the player card will appear at the bottom-left.</p>
+</div>
+
+<!-- PLAYER CARD -->
+<div id="player">
+  <div id="disc-wrap">
+    <img id="disc" alt="Album Art" style="display:none;">
+    <div id="disc-default">♪</div>
+  </div>
+
+  <div id="info">
+    <div id="now-playing-label">
+      <span class="dot" id="pulse-dot"></span>
+      Now Playing
+      <span id="track-count"></span>
+    </div>
+    <div id="song-title">—</div>
+    <div id="song-artist">—</div>
+
+    <div id="progress-wrap">
+      <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+      <div id="times">
+        <span id="time-current">0:00</span>
+        <span id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="prev-btn" title="Previous">&#9664;&#9664;</button>
+      <button class="ctrl-btn" id="play-btn" title="Play/Pause">&#9654;</button>
+      <button class="ctrl-btn" id="next-btn" title="Next">&#9654;&#9654;</button>
+    </div>
+  </div>
+</div>
+
+<!-- jsmediatags for ID3 reading -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+
+<script>
+const audio = new Audio();
+let playlist = [];
+let currentIndex = 0;
+let isPlaying = false;
+
+// Elements
+const loadArea    = document.getElementById('load-area');
+const fileInput   = document.getElementById('file-input');
+const playerEl    = document.getElementById('player');
+const discImg     = document.getElementById('disc');
+const discDefault = document.getElementById('disc-default');
+const songTitle   = document.getElementById('song-title');
+const songArtist  = document.getElementById('song-artist');
+const progressBar = document.getElementById('progress-bar');
+const timeCurrent = document.getElementById('time-current');
+const timeTotal   = document.getElementById('time-total');
+const playBtn     = document.getElementById('play-btn');
+const prevBtn     = document.getElementById('prev-btn');
+const nextBtn     = document.getElementById('next-btn');
+const pulseDot    = document.getElementById('pulse-dot');
+const trackCount  = document.getElementById('track-count');
+
+// Format seconds → m:ss
+function fmt(s) {
+  if (isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+// Strip file extension from name
+function stripExt(name) {
+  return name.replace(/\.[^/.]+$/, '');
+}
+
+// Load files from input
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('audio/') || /\.(mp3|flac|ogg|wav|m4a|aac)$/i.test(f.name));
+  if (!files.length) return;
+
+  playlist = files.map(f => ({ file: f, name: stripExt(f.name), artist: '', art: null, url: URL.createObjectURL(f) }));
+  currentIndex = 0;
+
+  loadArea.style.display = 'none';
+  playerEl.classList.add('visible');
+
+  loadTrack(0, true);
+});
+
+// Load a track
+function loadTrack(index, autoplay = false) {
+  const track = playlist[index];
+  audio.src = track.url;
+
+  // Defaults
+  songTitle.textContent = track.name;
+  songArtist.textContent = track.artist || 'Unknown Artist';
+  trackCount.textContent = `${index + 1} / ${playlist.length}`;
+
+  setArt(null);
+
+  // Try reading ID3 tags
+  jsmediatags.read(track.file, {
+    onSuccess(result) {
+      const tags = result.tags;
+      if (tags.title) { track.name = tags.title; songTitle.textContent = tags.title; }
+      if (tags.artist) { track.artist = tags.artist; songArtist.textContent = tags.artist; }
+      if (tags.picture) {
+        const pic = tags.picture;
+        const b64 = btoa(String.fromCharCode(...new Uint8Array(pic.data)));
+        const src = `data:${pic.format};base64,${b64}`;
+        track.art = src;
+        setArt(src);
+      }
+    },
+    onError() { /* no tags, keep filename */ }
+  });
+
+  if (autoplay) {
+    audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  } else {
+    setPlaying(false);
+  }
+}
+
+function setArt(src) {
+  if (src) {
+    discImg.src = src;
+    discImg.style.display = 'block';
+    discDefault.style.display = 'none';
+  } else {
+    discImg.style.display = 'none';
+    discDefault.style.display = 'flex';
+  }
+}
+
+function setPlaying(state) {
+  isPlaying = state;
+  playBtn.innerHTML = state ? '&#9646;&#9646;' : '&#9654;';
+  discImg.classList.toggle('playing', state);
+  // apply spin to default disc too
+  discDefault.style.animation = state ? 'spin 6s linear infinite' : '';
+  pulseDot.classList.toggle('active', state);
+}
+
+// Play / Pause
+playBtn.addEventListener('click', () => {
+  if (!playlist.length) return;
+  if (isPlaying) { audio.pause(); setPlaying(false); }
+  else { audio.play(); setPlaying(true); }
+});
+
+// Next
+function nextTrack() {
+  currentIndex = (currentIndex + 1) % playlist.length;
+  loadTrack(currentIndex, true);
+}
+
+// Prev
+function prevTrack() {
+  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+  loadTrack(currentIndex, true);
+}
+
+nextBtn.addEventListener('click', nextTrack);
+prevBtn.addEventListener('click', prevTrack);
+audio.addEventListener('ended', nextTrack);
+
+// Progress
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  progressBar.style.width = pct + '%';
+  timeCurrent.textContent = fmt(audio.currentTime);
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  timeTotal.textContent = fmt(audio.duration);
+});
+
+// Keyboard shortcuts (useful during setup)
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { playBtn.click(); e.preventDefault(); }
+  if (e.code === 'ArrowRight') nextTrack();
+  if (e.code === 'ArrowLeft') prevTrack();
+});
+</script>
+</body>
+</html>
